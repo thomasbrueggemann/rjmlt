@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.venv/
+venv/
+.mypy_cache/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Working artifacts
+*.json
+!tests/data/*.json
+rebuilt.rjs
+out.rjs
+edited.rjs
+
+# original lives as tests/data/test.rjs
+/test.rjs

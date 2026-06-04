@@ -5,9 +5,14 @@ Read and write **RJM Mastermind LT** `.rjs` settings files in Python.
 The `.rjs` format is the proprietary binary container the RJM editor uses to
 store everything on the controller — presets, songs, setlists, button pages,
 macros, expression-pedal blocks and global settings. `rjmlt` parses it into a
-clean object model (and a lossless JSON projection), lets you edit names and
-bytes, and writes the file back out **with correct checksums**, so you can drive
-the footswitch from your own tooling.
+clean object model (and a lossless JSON projection) of **named, typed fields**,
+lets you edit them, and writes the file back out **with correct checksums**, so
+you can drive the footswitch from your own tooling.
+
+Every chunk in the reference file decodes into a field schema that re-encodes
+byte-for-byte (1157/1157 records), so the JSON is structured — `song_refs`,
+`scenes`, `ext_switches`, `func_type`, … — not opaque blobs. The full format,
+including confidence levels, is in [FORMAT.md](FORMAT.md).
 
 ```python
 from rjmlt import RjsFile
@@ -130,30 +135,31 @@ the byte position shifted revealed that bytes are consumed in little-endian
 
 ## JSON shape
 
+Records with a known schema decode into typed `fields`:
+
 ```json
 {
-  "format": "rjm-mastermind-lt",
-  "json_version": 1,
-  "records": [
-    {
-      "tag": "RJMP",
-      "type": "preset",
-      "version": 17,
-      "index": 0,
-      "reserved": 0,
-      "stored_checksum": 1612668609,
-      "segments": [
-        { "text": "Preset 1" },
-        { "raw": "0000000000000000....fe0f...." }
-      ]
-    }
-  ]
+  "tag": "RJMS",
+  "type": "setlist",
+  "version": 17,
+  "index": 0,
+  "reserved": 0,
+  "stored_checksum": 2354231563,
+  "fields": {
+    "name": "Setlist 1",
+    "song_refs": [4095, 4095, 4095, "... 100 song slots, 0x0FFF = empty"]
+  }
 }
 ```
 
-`text` segments are printable runs (names); `raw` segments are everything not
-yet decoded, preserved verbatim as hex. Editing a `text` value and re-encoding
-yields a valid file.
+Edit a field value (e.g. set `name` or point `song_refs[0]` at a song index)
+and re-encoding yields a valid file with a recomputed checksum.
+
+Any record whose bytes a schema can't reproduce exactly falls back to a lossless
+segment view instead — `{"segments": [{"text": "Preset 1"}, {"raw": "00fe0f.."}]}`
+— where `text` runs are names and `raw` is verbatim hex. Either way the
+round-trip is exact. See [FORMAT.md](FORMAT.md) for every field and its
+confidence level.
 
 ## Python API
 
@@ -168,6 +174,8 @@ rjs.invalid_checksums                    # records whose checksum doesn't verify
 rec = rjs.by_tag("RJMP")[0]
 rec.name, rec.names                      # decoded name(s)
 rec.type                                 # "preset"
+rec.fields                               # structured dict (or None -> use segments)
+rec.fields["scenes"][0]["name"]          # "Scene 1"
 rec.checksum_valid                       # True
 rec.set_name("Lead Boost")               # edit a name (fixed width preserved)
 rec.replace_bytes(0x22, b"\x01")         # low-level byte edit
@@ -185,16 +193,23 @@ pytest
 ```
 
 The suite verifies the TLV walk reaches EOF, that every stored checksum is
-reproduced, that the segment codec is a true inverse, that `.rjs → JSON → .rjs →
-JSON` is the identity, and that editing a name produces a byte-length-preserving
-file with a valid checksum.
+reproduced, that the segment and field codecs are true inverses, that all 1157
+records decode into byte-exact field schemas, that `.rjs → JSON → .rjs → JSON`
+is the identity, and that editing a name or a structured field produces a valid
+file with a recomputed checksum.
 
 ## Status & limitations
 
-- ✅ Lossless read/write, byte-exact round-trip, correct checksums, editable names.
-- 🚧 The numeric meaning of most payload bytes (MIDI messages, routing, scene
-  assignments) is preserved verbatim but not yet decoded into named fields.
-  Contributions welcome — the `raw` segments are where that work goes.
+- ✅ Lossless read/write, byte-exact round-trip, correct checksums, editable
+  names and typed fields.
+- ✅ Every chunk in the reference file decodes into a named-field schema that
+  re-encodes byte-exact (1157/1157).
+- 🚧 Some numeric regions (controller-assignment blocks, macro bodies, parts of
+  the global settings) sit at their factory default throughout the reference
+  file, so their exact meaning is unconfirmed. They are preserved losslessly as
+  typed `u8`/`u16` arrays with provisional names; [FORMAT.md](FORMAT.md) marks
+  confidence per field. A file with those features configured would let each
+  remaining field be pinned down safely.
 - The reference file targets firmware/editor format `version 17`.
 
 ## License

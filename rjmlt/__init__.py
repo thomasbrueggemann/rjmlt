@@ -20,9 +20,12 @@ from __future__ import annotations
 
 from .checksum import INIT, POLYNOMIAL, compute_checksum
 from .model import HEADER_SIZE, TAG_TYPES, Record, RjsFile
+from .schema import decode as decode_fields
+from .schema import encode as encode_fields
 from .segments import decode_payload, encode_segments
+from .structures import get_schema
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "RjsFile",
@@ -30,6 +33,9 @@ __all__ = [
     "compute_checksum",
     "decode_payload",
     "encode_segments",
+    "decode_fields",
+    "encode_fields",
+    "get_schema",
     "TAG_TYPES",
     "HEADER_SIZE",
     "POLYNOMIAL",

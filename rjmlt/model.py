@@ -25,12 +25,15 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple, Union
 
 from .checksum import compute_checksum
+from .schema import decode as schema_decode
+from .schema import encode as schema_encode
 from .segments import (
     MIN_TEXT_RUN,
     Segment,
     decode_payload,
     encode_segments,
 )
+from .structures import get_schema
 
 __all__ = ["Record", "RjsFile", "TAG_TYPES", "HEADER_SIZE"]
 
@@ -153,6 +156,22 @@ class Record:
         self.payload = bytes(p)
         self.dirty = True
 
+    # -- structured fields ---------------------------------------------------
+
+    @property
+    def fields(self) -> Optional[dict]:
+        """The payload decoded into named typed fields, or ``None``.
+
+        Returns ``None`` when no schema is known for this record type or the
+        schema does not reproduce the payload exactly (in which case the raw
+        segment view is authoritative).
+        """
+        schema = get_schema(self.tag, self.index)
+        if schema is None:
+            return None
+        data, ok = schema_decode(schema, self.payload)
+        return data if ok else None
+
     # -- serialization -------------------------------------------------------
 
     def header_bytes(self, *, recompute_checksum: bool = True) -> bytes:
@@ -174,19 +193,29 @@ class Record:
         return self.header_bytes(recompute_checksum=recompute_checksum) + self.payload
 
     def to_dict(self) -> dict:
-        return {
+        out = {
             "tag": self.tag,
             "type": self.type,
             "version": self.version,
             "index": self.index,
             "reserved": self.reserved,
             "stored_checksum": self.stored_checksum,
-            "segments": decode_payload(self.payload),
         }
+        # Prefer the structured field view; fall back to lossless raw segments.
+        fields = self.fields
+        if fields is not None:
+            out["fields"] = fields
+        else:
+            out["segments"] = decode_payload(self.payload)
+        return out
 
     @classmethod
     def from_dict(cls, data: dict) -> "Record":
-        payload = encode_segments(data["segments"])
+        if "fields" in data:
+            schema = get_schema(data["tag"], data["index"])
+            payload = schema_encode(schema, data["fields"])
+        else:
+            payload = encode_segments(data["segments"])
         return cls(
             tag=data["tag"],
             version=data["version"],

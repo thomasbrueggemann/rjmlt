@@ -96,9 +96,9 @@ is correct:
 
 | tag    | type          | count | meaning                                |
 |--------|---------------|------:|----------------------------------------|
-| `RJMG` | `global`      | 3     | global settings (main / loops / routing) |
+| `RJMG` | `global`      | 3     | global settings (main + device table / groups / routing) |
 | `RJMB` | `button_page` | 32    | button pages                           |
-| `RJMC` | `device`      | 16    | external devices                       |
+| `RJMC` | `device?`     | 16    | 208 × `Step N` slots — role unconfirmed (see [FORMAT.md](FORMAT.md)) |
 | `RJMs` | `song`        | 16    | song blocks (63 songs × 64 B each)     |
 | `RJMS` | `setlist`     | 64    | setlists                               |
 | `RJMX` | `sysex`       | 1     | sysex table (127 × 32 B slots)         |
@@ -202,15 +202,19 @@ file with a recomputed checksum.
 
 - ✅ Lossless read/write, byte-exact round-trip, correct checksums, editable
   names and typed fields.
-- ✅ Every chunk in the reference file decodes into a named-field schema that
-  re-encodes byte-exact (1157/1157).
-- 🚧 Some numeric regions (controller-assignment blocks, macro bodies, parts of
-  the global settings) sit at their factory default throughout the reference
-  file, so their exact meaning is unconfirmed. They are preserved losslessly as
-  typed `u8`/`u16` arrays with provisional names; [FORMAT.md](FORMAT.md) marks
-  confidence per field. A file with those features configured would let each
-  remaining field be pinned down safely.
-- The reference file targets firmware/editor format `version 17`.
+- ✅ Every chunk decodes into a named-field schema that re-encodes byte-exact —
+  for both the factory-default reference file **and** a real user-configured
+  file (`tests/data/thomas.rjs`): 1157/1157, no raw-segment fallbacks.
+- ✅ Validated against the editor's own screenshots: device names + settings,
+  preset/song/setlist names, and the song↔preset / setlist↔song wiring all
+  decode to the values shown in the UI (see `tests/test_example1.py`).
+- 🚧 Some numeric regions (per-device settings, preset On/Off colours and
+  PC-message/action blocks, macro bodies, parts of the global settings) are
+  still sparse or ambiguous even in the configured file, so their exact layout
+  is unconfirmed. They are preserved losslessly as typed `u8`/`u16` arrays with
+  provisional names; [FORMAT.md](FORMAT.md) marks confidence per field. More
+  configured files would let each remaining field be pinned down safely.
+- The reference files target firmware/editor format `version 17`.
 
 ## License
 

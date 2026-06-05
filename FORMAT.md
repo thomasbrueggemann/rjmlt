@@ -39,9 +39,9 @@ checksums. Implementation: [`rjmlt/checksum.py`](rjmlt/checksum.py).
 
 | tag    | type          | count | payload | structure (high-confidence parts) |
 |--------|---------------|------:|--------:|-----------------------------------|
-| `RJMG` | global        | 3     | 2568/2048/528 | main settings / 16 group slots / 33 routing-point names |
+| `RJMG` | global        | 3     | 2568/2048/528 | main settings (incl. external-device table) / 16 group slots / 33 routing-point names |
 | `RJMB` | button page   | 32    | 2576    | 16 buttons + 4 ext-switch slots (128 B each) + page name |
-| `RJMC` | device        | 16    | 3328    | 208 × 16-byte slots (`ctrl` byte + 15-byte name) |
+| `RJMC` | device?       | 16    | 3328    | 208 × 16-byte slots (`ctrl` byte + 15-byte name); see note |
 | `RJMs` | song          | 16    | 4032    | 63 songs × 64 B: name(30) + ref + 16 preset slots |
 | `RJMS` | setlist       | 64    | 232     | name(32) + 100 song slots (u16, `0x0FFF` empty) |
 | `RJMX` | sysex         | 1     | 4064    | 127 × 32-byte name slots |
@@ -108,12 +108,42 @@ Out, Inserts, Fn Switches, Dry Mix). Numeric settings in `index 0` include a
 plausible `440` (tuner reference) and response/curve lookup tables; these are
 typed as byte arrays pending confirmation.
 
+The **external-device table** lives in `index 0` at offset 348: 16 fixed slots
+of 32 bytes, each `name`(16) + 16 settings bytes. Confirmed against a configured
+file (slot 0 `Collider`: `max_pc` 127, `num_presets` 128; slot 1 `M5`). The
+remaining settings bytes (MIDI channel, PC offset, port, bank type, flags,
+manufacturer/model ids) stay a provisional byte array. This — not the `RJMC`
+section — is where the editor's Devices tab is stored.
+
+> **`RJMC` note.** `RJMC` was originally guessed to be the device section
+> because the LT has 16 external-device slots, but in a configured file its 16
+> records carry an unrelated 208 × `Step N` table while the real device config
+> (names + settings) sits in `RJMG` `index 0` as above. The meaning of the
+> `RJMC` `Step N` slots is not yet identified; the bytes round-trip regardless.
+
 ## What is *not* yet pinned down
 
-The reference file is almost entirely at factory defaults apart from names and a
-few text fields, so the numeric semantics of MIDI-message bytes, controller
-assignment blocks, macro bodies, and most global settings cannot be confirmed
-from it alone. They are preserved losslessly as typed numeric fields. Feeding
-the library a file with those features configured would let the first differing
-byte pin each remaining field — the schema engine makes that an incremental,
-safe refinement.
+A second, user-configured file (`tests/data/thomas.rjs`, the "example1"
+reference: named devices, presets, songs, setlists and their wiring) was used to
+confirm the structural fields against the editor's own screenshots — names,
+references, the device table, scene/ext-switch names, song↔preset and
+setlist↔song wiring all decode to the displayed values, and **every chunk
+(1157/1157) decodes into named fields with no raw-segment fallback**.
+
+Still provisional, because even the configured file leaves them sparse or
+ambiguous: the per-device settings bytes (channel/port/bank/flags), preset
+**On/Off colours** and **PC-message / preset-action** blocks (located inside the
+preset `label_table` / `controllers` / `list_528` regions — they demonstrably
+change when configured, but their exact layout needs more examples to pin
+without guessing), macro bodies, and most numeric global settings. These are
+preserved losslessly as typed numeric fields; adding more configured files lets
+the first differing byte pin each remaining field — the schema engine makes that
+an incremental, safe refinement.
+
+### A note on the `str` field type
+
+A fixed-width name field is normally `text` + `0x00` padding and decodes to a
+plain string. When non-zero bytes follow the terminator (e.g. a Preset button
+whose label keeps a secondary `" 1"` run after the name), the field decodes to
+`{"text": "...", "extra": "<hex>"}` instead, so it still re-encodes byte-exact
+rather than dropping the tail. Either way the round-trip is lossless.

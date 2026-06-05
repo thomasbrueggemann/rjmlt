@@ -11,6 +11,8 @@ round-trip guarantee.
 Field specs (tuples)::
 
     (name, "str", size)        zero-padded Latin-1 string  -> str
+                               (or {"text", "extra"} when non-zero bytes follow
+                                the NUL terminator, so the field stays lossless)
     (name, "u8")               unsigned byte               -> int
     (name, "u16")              u16 little-endian            -> int
     (name, "u32")              u32 little-endian            -> int
@@ -67,8 +69,17 @@ def schema_size(schema: Sequence[Sequence]) -> int:
 def _decode_field(spec: Sequence, buf: bytes, off: int) -> Any:
     kind = spec[1]
     if kind == "str":
-        raw = buf[off:off + spec[2]]
-        return raw.split(b"\x00", 1)[0].decode("latin-1")
+        size = spec[2]
+        raw = buf[off:off + size]
+        nul = raw.find(b"\x00")
+        if nul == -1:
+            return raw.decode("latin-1")  # fills the field, no terminator
+        text = raw[:nul].decode("latin-1")
+        if raw[nul:] == b"\x00" * (size - nul):
+            return text  # plain string: clean zero padding
+        # Non-zero bytes follow the terminator (e.g. a button label that keeps a
+        # secondary run after the name); keep them so the field round-trips.
+        return {"text": text, "extra": raw[nul + 1:].hex()}
     if kind == "u8":
         return buf[off]
     if kind == "u16":
@@ -95,6 +106,15 @@ def _encode_field(spec: Sequence, value: Any) -> bytes:
     kind = spec[1]
     if kind == "str":
         size = spec[2]
+        if isinstance(value, dict):  # text + preserved post-terminator bytes
+            raw = (
+                value["text"].encode("latin-1")
+                + b"\x00"
+                + bytes.fromhex(value["extra"])
+            )
+            if len(raw) != size:
+                raise SchemaError(f"str {value!r} does not fill {size}-byte field")
+            return raw
         raw = value.encode("latin-1")
         if len(raw) > size:
             raise SchemaError(f"string {value!r} too long for {size}-byte field")

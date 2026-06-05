@@ -130,6 +130,20 @@ SCHEMA_RJME = [
 # --------------------------------------------------------------------------- #
 # RJMG -- globals (3 records of different shapes, dispatched by index)         #
 # --------------------------------------------------------------------------- #
+# The external-device table lives inside the index-0 globals record (NOT in the
+# RJMC section, which holds unrelated "Step N" slots). It is 16 fixed slots of
+# 32 bytes: a 16-byte name followed by 16 bytes of per-device settings. The name
+# and two settings (Max PC, # of presets) were confirmed against a configured
+# file (device 0 "Collider": Max PC 127, 128 presets; device 1 "M5"); the rest
+# of the settings block stays a provisional byte array.
+_RJMG_DEVICE = [
+    ("name",        "str", 16),    # device name, e.g. "Collider", "M5"
+    ("settings_a",  "u8a", 3),     # bytes 0-2: midi channel / pc offset / port (provisional)
+    ("max_pc",      "u8"),         # byte 3: Max PC (Collider = 127)
+    ("settings_b",  "u8a", 8),     # bytes 4-11: flags / bank type / model ids (provisional)
+    ("num_presets", "u16"),        # bytes 12-13: # of presets (Collider = 128)
+    ("settings_c",  "u8a", 2),     # bytes 14-15 (provisional)
+]
 SCHEMA_RJMG_0 = [   # index 0, 2568 bytes -- main settings
     ("hdr_00",        "u8"),
     ("device_model",  "u8"),
@@ -149,9 +163,8 @@ SCHEMA_RJMG_0 = [   # index 0, 2568 bytes -- main settings
     ("exp_pedals",    "array", 3, [("name", "str", 16), ("data", "u8a", 52)]),
     ("exp_pedal_4_name", "str", 16),
     ("exp_pedal_4_data", "u8a", 48),
-    ("megx_name",     "str", 16),
-    ("megx_data",     "u8a", 32),
-    ("loop_slots",    "array", 30, [("flag", "u8"), ("rest", "u8a", 31)]),
+    ("devices",       "array", 16, _RJMG_DEVICE),  # [348:860] external-device table
+    ("block_860",     "u8a", 496),                 # [860:1356] provisional (loops/routing?)
     ("settings_block", "u8a", 52),
     ("zeros_1",       "u8a", 1012),
     ("curve_table_1", "u8a", 64),

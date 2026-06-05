@@ -123,7 +123,7 @@ section — is where the editor's Devices tab is stored.
 
 ## What is *not* yet pinned down
 
-A second, user-configured file (`tests/data/thomas.rjs`, the "example1"
+A second, user-configured file (`tests/data/configured.rjs`, the "example1"
 reference: named devices, presets, songs, setlists and their wiring) was used to
 confirm the structural fields against the editor's own screenshots — names,
 references, the device table, scene/ext-switch names, song↔preset and

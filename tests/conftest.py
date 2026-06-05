@@ -19,7 +19,7 @@ def sample_bytes(sample_path):
 def configured_path():
     # A real, user-configured file (the "example1" reference): named devices,
     # presets, songs, setlists and wiring -- not factory defaults.
-    return DATA / "thomas.rjs"
+    return DATA / "configured.rjs"
 
 
 @pytest.fixture(scope="session")

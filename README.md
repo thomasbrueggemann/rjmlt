@@ -204,7 +204,7 @@ file with a recomputed checksum.
   names and typed fields.
 - ✅ Every chunk decodes into a named-field schema that re-encodes byte-exact —
   for both the factory-default reference file **and** a real user-configured
-  file (`tests/data/thomas.rjs`): 1157/1157, no raw-segment fallbacks.
+  file (`tests/data/configured.rjs`): 1157/1157, no raw-segment fallbacks.
 - ✅ Validated against the editor's own screenshots: device names + settings,
   preset/song/setlist names, and the song↔preset / setlist↔song wiring all
   decode to the values shown in the UI (see `tests/test_example1.py`).

@@ -1,6 +1,6 @@
 """Ground-truth extraction test against a real, user-configured file.
 
-``tests/data/thomas.rjs`` is the "example1" reference: a file saved from the RJM
+``tests/data/configured.rjs`` is the "example1" reference: a file saved from RJM
 Mastermind editor with named devices, presets, songs, setlists and the wiring
 between them.  Every assertion below corresponds to a value visible in the
 editor screenshots in ``example1/``.  Together with the round-trip identity this
